@@ -190,6 +190,8 @@ public class EditableControlMenu
 }
 ```
 
+---
+
 ## ▶️ 工具运行
 
 <img width="2560" height="1380" alt="image" src="https://github.com/user-attachments/assets/be6674c7-01a7-4a99-9c82-ef2932b2bc7e" />
