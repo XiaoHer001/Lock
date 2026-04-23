@@ -52,7 +52,9 @@ public class LockTest : MonoBehaviour
         if (GameObject.Find("LockedObject") == null)
         {
             GameObject obj = new GameObject("LockedObject");
-            obj.hideFlags = HideFlags.NotEditable;
+            obj.hideFlags = HideFlags.None;
+
+            // obj.hideFlags = HideFlags.NotEditable;
         }
     }
 }
@@ -76,31 +78,119 @@ using UnityEngine;
 
 public class EditableControlMenu
 {
-    [MenuItem("Tools/Lock Selected %#l")]
+    // =========================
+    // 锁定选中对象（包含子物体）
+    // =========================
+    [MenuItem("Tools/Lock Selected %#l")] // Ctrl+Shift+L
     static void LockSelected()
     {
-        foreach (var obj in Selection.gameObjects)
-            Apply(obj, true);
+        var selection = Selection.gameObjects;
+
+        if (selection.Length == 0)
+        {
+            Debug.LogWarning("No GameObject selected.");
+            return;
+        }
+
+        int count = 0;
+
+        foreach (var obj in selection)
+        {
+            // 避免锁 Prefab Root（重要）
+            if (PrefabUtility.IsAnyPrefabInstanceRoot(obj))
+            {
+                Debug.LogWarning($"Skip Prefab Root: {obj.name}");
+                continue;
+            }
+
+            count += ApplyToHierarchy(obj, true);
+        }
+
+        Debug.Log($"Locked {count} objects.");
     }
 
-    [MenuItem("Tools/Unlock Selected %#u")]
+    // =========================
+    // 解锁选中对象（包含子物体）
+    // =========================
+    [MenuItem("Tools/Unlock Selected %#u")] // Ctrl+Shift+U
     static void UnlockSelected()
     {
-        foreach (var obj in Selection.gameObjects)
-            Apply(obj, false);
+        var selection = Selection.gameObjects;
+
+        if (selection.Length == 0)
+        {
+            Debug.LogWarning("No GameObject selected.");
+            return;
+        }
+
+        int count = 0;
+
+        foreach (var obj in selection)
+        {
+            count += ApplyToHierarchy(obj, false);
+        }
+
+        Debug.Log($"Unlocked {count} objects.");
     }
 
-    static void Apply(GameObject root, bool lockState)
+    // =========================
+    // 一键解锁所有对象（救命按钮）
+    // =========================
+    [MenuItem("Tools/Force Unlock ALL")]
+    static void UnlockAll()
     {
-        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+        var all = Object.FindObjectsOfType<GameObject>(true);
+        int count = 0;
+
+        foreach (var obj in all)
+        {
+            if (obj.hideFlags != HideFlags.None)
+            {
+                Undo.RecordObject(obj, "Force Unlock");
+                obj.hideFlags = HideFlags.None;
+                EditorUtility.SetDirty(obj);
+                count++;
+            }
+        }
+
+        Debug.Log($"Force Unlocked {count} objects (ALL).");
+    }
+
+    // =========================
+    // 核心逻辑：递归处理层级
+    // =========================
+    static int ApplyToHierarchy(GameObject root, bool lockState)
+    {
+        int count = 0;
+
+        var transforms = root.GetComponentsInChildren<Transform>(true);
+
+        foreach (var t in transforms)
         {
             var obj = t.gameObject;
+
+            // 已经是目标状态就跳过
+            if (lockState && obj.hideFlags == HideFlags.NotEditable)
+                continue;
+
+            if (!lockState && obj.hideFlags == HideFlags.None)
+                continue;
+
+            Undo.RecordObject(obj, lockState ? "Lock Object" : "Unlock Object");
+
             obj.hideFlags = lockState ? HideFlags.NotEditable : HideFlags.None;
+
             EditorUtility.SetDirty(obj);
+
+            count++;
         }
+
+        return count;
     }
 }
 ```
+
+## ▶️ 工具运行
 
 <img width="2560" height="1380" alt="image" src="https://github.com/user-attachments/assets/be6674c7-01a7-4a99-9c82-ef2932b2bc7e" />
 
